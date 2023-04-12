@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+py2neo
+DZDConfigs
+pydantic
+neo4j
+requests
