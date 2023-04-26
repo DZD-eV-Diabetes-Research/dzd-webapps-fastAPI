@@ -87,17 +87,11 @@ async def articel_by_genes(g: list[str] = Query(default=[""])):
 
     query = """
     UNWIND $gene_symbols as x
-        MATCH (g:Gene {sid:x})
-        -[:REPLACED_BY*0..1]-(gs2:Gene)
-        -[:MAPS*0..2]-(gs3:Gene)
-        -[:SYNONYM*0..1]-(gs4:Gene)
-        <-[:MENTIONS]-(at:AbstractText)
-        <-[:ABSTRACT_HAS_ABSTRACTTEXT]-(a:Abstract)
-        <-[:PUBMEDARTICLE_HAS_ABSTRACT]-(p:PubMedArticle)
-        -[:PUBMEDARTICLE_HAS_MESHHEADINGLIST]->
-        (mhl:MeshHeadingList)-[*1..2]->
-        (md:MeshDescriptor)
-    RETURN DISTINCT g.sid AS Sid, p.ArticleTitle AS ArticleTitle
+    MATCH (g:Gene {symbol:x})-[:MENTIONED_IN]->(p:PubMedArticle)
+    -[:PUBMEDARTICLE_HAS_MESHHEADINGLIST]->
+    (mhl:MeshHeadingList)-[*1..2]->
+    (md:MeshDescriptor)
+    RETURN DISTINCT g.symbol AS Symbol, p.ArticleTitle AS ArticleTitle
     """
 
     url = config.API_ORIGIN['url']
@@ -127,13 +121,8 @@ async def articel_by_genes(
 
     first_part = """
     UNWIND $gene_symbols as x
-        MATCH (g:Gene {sid:x})
-        -[:REPLACED_BY*0..1]-(gs2:Gene)
-        -[:MAPS*0..2]-(gs3:Gene)
-        -[:SYNONYM*0..1]-(gs4:Gene)
-        <-[:MENTIONS]-(at:AbstractText)
-        <-[:ABSTRACT_HAS_ABSTRACTTEXT]-(a:Abstract)
-        <-[:PUBMEDARTICLE_HAS_ABSTRACT]-(p:PubMedArticle)
+        MATCH (g:Gene {symbol:x})
+        -[:MENTIONED_IN]->(p:PubMedArticle)
         -[:PUBMEDARTICLE_HAS_MESHHEADINGLIST]->
         (mhl:MeshHeadingList)-[*1..2]->
         (md:MeshDescriptor)
@@ -166,7 +155,7 @@ async def articel_by_genes(
                     f" AND not toLower(md.text) contains toLower('{blockTerm}') "
                 )
 
-    final_part = "RETURN DISTINCT p.ArticleTitle AS ArticleTitle, g.sid AS Sid, p.PMID AS PubMedArticle"
+    final_part = "RETURN DISTINCT p.ArticleTitle AS ArticleTitle, g.symbol AS Symbol, p.PMID AS PubMedArticle"
 
     query = first_part + meshQuery + blockQuery + final_part
 
@@ -236,17 +225,12 @@ async def articel_by_genes(
 async def articel_by_genes(g: list[str] = Query(default=[""])):
     query = """
     UNWIND $gene_symbols as x
-        MATCH (g:Gene {sid:x})
-        -[:REPLACED_BY*0..1]-(gs2:Gene)
-        -[:MAPS*0..2]-(gs3:Gene)
-        -[:SYNONYM*0..1]-(gs4:Gene)
-        <-[:MENTIONS]-(at:AbstractText)
-        <-[:ABSTRACT_HAS_ABSTRACTTEXT]-(a:Abstract)
-        <-[:PUBMEDARTICLE_HAS_ABSTRACT]-(p:PubMedArticle)
+        MATCH (g:Gene {symbol:x})
+        -[:MENTIONED_IN]->(p:PubMedArticle)
         -[:PUBMEDARTICLE_HAS_MESHHEADINGLIST]->
         (mhl:MeshHeadingList)-[*1..2]->
         (md:MeshDescriptor)
-    RETURN DISTINCT g.sid AS Sid, p.ArticleTitle AS ArticleTitle
+    RETURN DISTINCT g.symbol AS Symbol, p.ArticleTitle AS ArticleTitle
     """
 
     url = config.API_ORIGIN['url']
