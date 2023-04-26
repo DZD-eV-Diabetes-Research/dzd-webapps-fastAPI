@@ -64,7 +64,7 @@ async def get_mesh_list():
     RETURN COLLECT(DISTINCT(n.text)) AS MeSHList
     """
 
-    url = "bolt://neo4j02.connect.dzd-ev.de:9686"
+    url = config.API_ORIGIN['url']
     driver = AsyncGraphDatabase.driver(
         url,
         auth=basic_auth(
@@ -100,7 +100,7 @@ async def articel_by_genes(g: list[str] = Query(default=[""])):
     RETURN DISTINCT g.sid AS Sid, p.ArticleTitle AS ArticleTitle
     """
 
-    url = "bolt://neo4j02.connect.dzd-ev.de:9686"
+    url = config.API_ORIGIN['url']
     driver = AsyncGraphDatabase.driver(
         url,
         auth=basic_auth(
@@ -215,7 +215,7 @@ async def articel_by_genes(
     #
     ###
 
-    url = "bolt://neo4j02.connect.dzd-ev.de:9686"
+    url = config.API_ORIGIN['url']
     driver = AsyncGraphDatabase.driver(
         url,
         auth=basic_auth(
@@ -249,7 +249,7 @@ async def articel_by_genes(g: list[str] = Query(default=[""])):
     RETURN DISTINCT g.sid AS Sid, p.ArticleTitle AS ArticleTitle
     """
 
-    url = "bolt://neo4j02.connect.dzd-ev.de:9686"
+    url = config.API_ORIGIN['url']
     driver = AsyncGraphDatabase.driver(
         url,
         auth=basic_auth(
@@ -274,7 +274,7 @@ async def articel_by_genes(g: list[str] = Query(default=[""])):
 @app.get("/mouseclinic/getOverviewOrthologues/")
 async def getOrthologues(g: list[str] = Query(default=[""])):
 
-    url = "bolt://neo4j01.connect.dzd-ev.de:9787"
+    url = config.API_ORIGIN['url']
     driver = AsyncGraphDatabase.driver(
         url,
         auth=basic_auth(
@@ -317,7 +317,7 @@ async def getOrthologues(g: list[str] = Query(default=[""])):
 @app.get("/mouseclinic/getHuman/", response_model=list[Result])
 async def getHuman_by_genes(g: list[str] = Query(default=[""])):
 
-    url = "bolt://neo4j01.connect.dzd-ev.de:9787"
+    url = config.API_ORIGIN['url']
     driver = AsyncGraphDatabase.driver(
         url,
         auth=basic_auth(
@@ -351,7 +351,7 @@ async def getHuman_by_genes(g: list[str] = Query(default=[""])):
 @app.get("/mouseclinic/getMouse/", response_model=list[Result])
 async def getMouse_by_genes(g: list[str] = Query(default=[""])):
 
-    url = "bolt://neo4j01.connect.dzd-ev.de:9787"
+    url = config.API_ORIGIN['url']
     driver = AsyncGraphDatabase.driver(
         url,
         auth=basic_auth(
@@ -385,7 +385,7 @@ async def getMouse_by_genes(g: list[str] = Query(default=[""])):
 @app.get("/mouseclinic/getZebrafish/", response_model=list[Result])
 async def getFish_by_genes(g: list[str] = Query(default=[""])):
 
-    url = "bolt://neo4j01.connect.dzd-ev.de:9787"
+    url = config.API_ORIGIN['url']
     driver = AsyncGraphDatabase.driver(
         url,
         auth=basic_auth(
@@ -419,7 +419,7 @@ async def getFish_by_genes(g: list[str] = Query(default=[""])):
 @app.get("/mouseclinic/getRat/", response_model=list[Result])
 async def getRat_by_genes(g: list[str] = Query(default=[""])):
 
-    url = "bolt://neo4j01.connect.dzd-ev.de:9787"
+    url = config.API_ORIGIN['url']
     driver = AsyncGraphDatabase.driver(
         url,
         auth=basic_auth(
@@ -453,7 +453,7 @@ async def getRat_by_genes(g: list[str] = Query(default=[""])):
 @app.get("/mouseclinic/getC_elegans/", response_model=list[Result])
 async def getWorm_by_genes(g: list[str] = Query(default=[""])):
 
-    url = "bolt://neo4j01.connect.dzd-ev.de:9787"
+    url = config.API_ORIGIN['url']
     driver = AsyncGraphDatabase.driver(
         url,
         auth=basic_auth(
@@ -487,7 +487,7 @@ async def getWorm_by_genes(g: list[str] = Query(default=[""])):
 @app.get("/mouseclinic/getFruitFly/", response_model=list[Result])
 async def getFly_by_genes(g: list[str] = Query(default=[""])):
 
-    url = "bolt://neo4j01.connect.dzd-ev.de:9787"
+    url = config.API_ORIGIN['url']
     driver = AsyncGraphDatabase.driver(
         url,
         auth=basic_auth(
@@ -521,7 +521,7 @@ async def getFly_by_genes(g: list[str] = Query(default=[""])):
 @app.get("/mouseclinic/getPudMedID2Title/")
 async def getPudMedID2Title(g: list[str] = Query(default=[""])):
 
-    url = "bolt://neo4j01.connect.dzd-ev.de:9787"
+    url = config.API_ORIGIN['url']
     driver = AsyncGraphDatabase.driver(
         url,
         auth=basic_auth(
@@ -564,7 +564,7 @@ async def getGWAS_by_genes(g: list[str] = Query(default=[""])):
         RETURN DISTINCT g.sid, n.snp_id, t.name, t.efo_trait_uri
     """
 
-    url = "bolt://neo4j02.connect.dzd-ev.de:9686"
+    url = config.API_ORIGIN['url']
     driver = AsyncGraphDatabase.driver(
         url,
         auth=basic_auth(
