@@ -50,7 +50,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 @app.get("/")
 async def greeting():
     return {"DZD": "Hello everyone"}
@@ -291,10 +290,11 @@ async def getOrthologues(g: list[str] = Query(default=[""])):
     CASE 
     WHEN g2.taxid = "10090" THEN "Mouse"
     WHEN g2.taxid = "9606" THEN "Human"
-    WHEN g2.taxid = "7955" THEN "Fish"
-    WHEN g2.taxid = "7227" THEN "Fly"
-    WHEN g2.taxid = "6239" THEN "Worm"
+    WHEN g2.taxid = "7955" THEN "Zebrafish"
+    WHEN g2.taxid = "7227" THEN "FruitFly"
+    WHEN g2.taxid = "6239" THEN "C_elegans"
     WHEN g2.taxid = "10116" THEN "Rat"
+    WHEN g2.taxid = "9823" THEN "Pig"
     END AS Species, g2.symbol AS Symbol, g2.Full_name_from_nomenclature_authority AS Name, g2.sid AS SID, g2.source AS Source
     """
 
@@ -314,7 +314,7 @@ async def getOrthologues(g: list[str] = Query(default=[""])):
         return result
 
 
-@app.get("/mouseclinic/getHuman/", response_model=list[Result])
+@app.get("/mouseclinic/getHuman/")
 async def getHuman_by_genes(g: list[str] = Query(default=[""])):
 
     url = "bolt://neo4j01.connect.dzd-ev.de:9787"
@@ -330,7 +330,9 @@ async def getHuman_by_genes(g: list[str] = Query(default=[""])):
     MATCH (g:Gene) WHERE toUpper(g.symbol) = toUpper(x) AND g.taxid = "9606"
     WITH g AS HumanGene
     MATCH (HumanGene)-[:MENTIONED_IN]-(p:PubMedArticle)
-    RETURN DISTINCT "PMID" AS source, "Human" AS organism,   p.PMID as pmId, p.ArticleTitle AS title, "https://pubmed.ncbi.nlm.nih.gov/" + p.PMID AS link
+    WITH HumanGene,p
+    MATCH (pt:PublicationType)--(p:PubMedArticle)-[:PUBMEDARTICLE_HAS_DATE]->(d:Date)
+    RETURN DISTINCT "PMID" AS source, "Human" AS organism, p.PMID as pmId, pt.text AS PublicationType, p.ArticleTitle AS title, "https://pubmed.ncbi.nlm.nih.gov/" + p.PMID AS link, d.Year AS Year order by Year DESC
     """
 
     async def work(tx):
@@ -340,15 +342,15 @@ async def getHuman_by_genes(g: list[str] = Query(default=[""])):
     async with driver.session() as session:
         result = await session.execute_read(work)
 
-        test_list: List[Result] = []
+        # test_list: List[Result] = []
 
-        for element in result:
-            test_list.append(Result(**element))
+        # for element in result:
+        #     test_list.append(Result(**element))
 
-        return test_list
+        # return test_list
+        return result
 
-
-@app.get("/mouseclinic/getMouse/", response_model=list[Result])
+@app.get("/mouseclinic/getMouse/")
 async def getMouse_by_genes(g: list[str] = Query(default=[""])):
 
     url = "bolt://neo4j01.connect.dzd-ev.de:9787"
@@ -364,7 +366,9 @@ async def getMouse_by_genes(g: list[str] = Query(default=[""])):
     MATCH (g:Gene) WHERE toUpper(g.symbol) = toUpper(x) AND g.taxid = "9606"
     WITH g AS HumanGene
     MATCH (HumanGene)-[r:ORTHOLOG]->(MouseGene:Gene {taxid: "10090"})-[:MENTIONED_IN]-(p:PubMedArticle)
-    RETURN DISTINCT "PMID" AS source, "Mouse" AS organism, p.PMID as pmId, p.ArticleTitle AS title, "https://pubmed.ncbi.nlm.nih.gov/" + p.PMID AS link
+    WITH HumanGene,p
+    MATCH (pt:PublicationType)--(p:PubMedArticle)-[:PUBMEDARTICLE_HAS_DATE]->(d:Date)
+    RETURN DISTINCT "PMID" AS source, "Mouse" AS organism, p.PMID as pmId, pt.text AS PublicationType, p.ArticleTitle AS title, "https://pubmed.ncbi.nlm.nih.gov/" + p.PMID AS link, d.Year AS Year order by Year DESC
     """
 
     async def work(tx):
@@ -374,15 +378,15 @@ async def getMouse_by_genes(g: list[str] = Query(default=[""])):
     async with driver.session() as session:
         result = await session.execute_read(work)
 
-        test_list: List[Result] = []
+        # test_list: List[Result] = []
 
-        for element in result:
-            test_list.append(Result(**element))
+        # for element in result:
+        #     test_list.append(Result(**element))
 
-        return test_list
+        # return test_list
+        return result
 
-
-@app.get("/mouseclinic/getZebrafish/", response_model=list[Result])
+@app.get("/mouseclinic/getZebrafish/")
 async def getFish_by_genes(g: list[str] = Query(default=[""])):
 
     url = "bolt://neo4j01.connect.dzd-ev.de:9787"
@@ -398,7 +402,9 @@ async def getFish_by_genes(g: list[str] = Query(default=[""])):
     MATCH (g:Gene) WHERE toUpper(g.symbol) = toUpper(x) AND g.taxid = "9606"
     WITH g AS HumanGene
     MATCH (HumanGene)-[r:ORTHOLOG]->(FishGene:Gene {taxid: "7955"})-[:MENTIONED_IN]-(p:PubMedArticle)
-    RETURN DISTINCT "PMID" AS source, "Zebrafish" AS organism, p.PMID as pmId, p.ArticleTitle AS title, "https://pubmed.ncbi.nlm.nih.gov/" + p.PMID AS link
+    WITH HumanGene,p
+    MATCH (pt:PublicationType)--(p:PubMedArticle)-[:PUBMEDARTICLE_HAS_DATE]->(d:Date)
+    RETURN DISTINCT "PMID" AS source, "Zebrafish" AS organism, p.PMID as pmId, pt.text AS PublicationType, p.ArticleTitle AS title, "https://pubmed.ncbi.nlm.nih.gov/" + p.PMID AS link, d.Year AS Year order by Year DESC
     """
 
     async def work(tx):
@@ -408,15 +414,15 @@ async def getFish_by_genes(g: list[str] = Query(default=[""])):
     async with driver.session() as session:
         result = await session.execute_read(work)
 
-        test_list: List[Result] = []
+        # test_list: List[Result] = []
 
-        for element in result:
-            test_list.append(Result(**element))
+        # for element in result:
+        #     test_list.append(Result(**element))
 
-        return test_list
+        # return test_list
+        return result
 
-
-@app.get("/mouseclinic/getRat/", response_model=list[Result])
+@app.get("/mouseclinic/getRat/")
 async def getRat_by_genes(g: list[str] = Query(default=[""])):
 
     url = "bolt://neo4j01.connect.dzd-ev.de:9787"
@@ -432,7 +438,9 @@ async def getRat_by_genes(g: list[str] = Query(default=[""])):
     MATCH (g:Gene) WHERE toUpper(g.symbol) = toUpper(x) AND g.taxid = "9606"
     WITH g AS HumanGene
     MATCH (HumanGene)-[r:ORTHOLOG]->(RatGene:Gene {taxid: "10116"})-[:MENTIONED_IN]-(p:PubMedArticle)
-    RETURN DISTINCT "PMID" AS source, "Rat" AS organism, p.PMID as pmId, p.ArticleTitle AS title, "https://pubmed.ncbi.nlm.nih.gov/" + p.PMID AS link
+    WITH HumanGene,p
+    MATCH (pt:PublicationType)--(p:PubMedArticle)-[:PUBMEDARTICLE_HAS_DATE]->(d:Date)
+    RETURN DISTINCT "PMID" AS source, "Rat" AS organism, p.PMID as pmId, pt.text AS PublicationType, p.ArticleTitle AS title, "https://pubmed.ncbi.nlm.nih.gov/" + p.PMID AS link, d.Year AS Year order by Year DESC
     """
 
     async def work(tx):
@@ -442,12 +450,50 @@ async def getRat_by_genes(g: list[str] = Query(default=[""])):
     async with driver.session() as session:
         result = await session.execute_read(work)
 
-        test_list: List[Result] = []
+        # test_list: List[Result] = []
 
-        for element in result:
-            test_list.append(Result(**element))
+        # for element in result:
+        #     test_list.append(Result(**element))
 
-        return test_list
+        # return test_list
+        return result
+
+
+@app.get("/mouseclinic/getPig/")
+async def getPig_by_genes(g: list[str] = Query(default=[""])):
+
+    url = "bolt://neo4j01.connect.dzd-ev.de:9787"
+    driver = AsyncGraphDatabase.driver(
+        url,
+        auth=basic_auth(
+            config.NEO4J_ADMIN_QA["user"], config.NEO4J_ADMIN_QA["password"]
+        ),
+    )
+
+    query = """
+    UNWIND $gene_symbols as x
+    MATCH (g:Gene) WHERE toUpper(g.symbol) = toUpper(x) AND g.taxid = "9606"
+    WITH g AS HumanGene
+    MATCH (HumanGene)-[r:ORTHOLOG]->(PigGene:Gene {taxid: "9823"})-[:MENTIONED_IN]-(p:PubMedArticle)
+    WITH HumanGene,p
+    MATCH (pt:PublicationType)--(p:PubMedArticle)-[:PUBMEDARTICLE_HAS_DATE]->(d:Date)
+    RETURN DISTINCT "PMID" AS source, "Pig" AS organism, p.PMID as pmId, pt.text AS PublicationType, p.ArticleTitle AS title, "https://pubmed.ncbi.nlm.nih.gov/" + p.PMID AS link, d.Year AS Year order by Year DESC
+    """
+
+    async def work(tx):
+        result = await tx.run(query, {"gene_symbols": g})
+        return await result.data()
+
+    async with driver.session() as session:
+        result = await session.execute_read(work)
+
+        # test_list: List[Result] = []
+
+        # for element in result:
+        #     test_list.append(Result(**element))
+
+        # return test_list
+        return result
 
 
 @app.get("/mouseclinic/getC_elegans/", response_model=list[Result])
@@ -521,7 +567,7 @@ async def getFly_by_genes(g: list[str] = Query(default=[""])):
 @app.get("/mouseclinic/getPudMedID2Title/")
 async def getPudMedID2Title(g: list[str] = Query(default=[""])):
 
-    url = "bolt://neo4j01.connect.dzd-ev.de:9787"
+    url = "bolt://neo4j02.connect.dzd-ev.de:9686"
     driver = AsyncGraphDatabase.driver(
         url,
         auth=basic_auth(
@@ -557,11 +603,13 @@ async def getPudMedID2Title(g: list[str] = Query(default=[""])):
 async def getGWAS_by_genes(g: list[str] = Query(default=[""])):
     query = """
     UNWIND $gene_symbols as x
-        MATCH (t:Trait)-[ASSOCIATED_WITH_TRAIT]-
-        (a:Association)-[SNP_HAS_ASSOCIATION]-
-        (n:SNP)-[SNP_HAS_GENE]-
-        (g:Gene {sid: x}) 
-        RETURN DISTINCT g.sid, n.snp_id, t.name, t.efo_trait_uri
+    MATCH (g:Gene) WHERE toUpper(g.Symbol) = toUpper(x)
+    WITH g
+    MATCH (g)-[:MAPS*0..2]-(gs3:Gene)
+    -[:SNP_HAS_GENE]-(n:SNP)
+    -[:SNP_HAS_ASSOCIATION]-(a:Association)
+    -[:ASSOCIATED_WITH_TRAIT]-(t:Trait)
+    RETURN DISTINCT g.Symbol AS Gene, n.snp_id AS SNP, t.name AS Trait, t.efo_trait_uri AS Link
     """
 
     url = "bolt://neo4j02.connect.dzd-ev.de:9686"
