@@ -12,13 +12,20 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v3
 
+      - name: extract lower case repo name
+        shell: bash
+        run: |
+          raw=${{ github.event.repository.name }}
+          echo "name_lc=${raw,,}" >> $GITHUB_OUTPUT
+        id: repo_name
+
       - name: Extract tag name
         shell: bash
         run: echo "tag=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
         id: tag_branch
 
       - name: Build docker image
-        run: docker build -t ${{ secrets.DOCKERHUB_DZD_USERNAME }}/${{ github.event.repository.name }}:${{ steps.tag_branch.outputs.tag }} -t ${{ secrets.DOCKERHUB_DZD_USERNAME }}/${{ github.event.repository.name }}:${{ github.event.release.target_commitish }} .
+        run: docker build -t ${{ secrets.DOCKERHUB_DZD_USERNAME }}/${{ steps.repo_name.outputs.name_lc }}:${{ steps.tag_branch.outputs.tag }} -t ${{ secrets.DOCKERHUB_DZD_USERNAME }}/${{ steps.repo_name.outputs.name_lc }}:${{ github.event.release.target_commitish }} .
 
       - name: Log in to Docker Hub
         uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a
@@ -28,4 +35,4 @@ jobs:
 
       - name: Push docker image to dockerhub
         shell: bash
-        run: docker push ${{ secrets.DOCKERHUB_DZD_USERNAME }}/${{ github.event.repository.name }} --all-tags
+        run: docker push ${{ secrets.DOCKERHUB_DZD_USERNAME }}/${{ steps.repo_name.outputs.name_lc }} --all-tags
