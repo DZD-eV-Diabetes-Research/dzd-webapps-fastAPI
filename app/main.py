@@ -1,20 +1,14 @@
-from lib2to3.pytree import Base
+import logging
+import uvicorn
+import requests
+
+from config import DEFAULT
+from Configs import getConfig
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List
 from neo4j import GraphDatabase, AsyncGraphDatabase, basic_auth
-import requests
-from Configs import getConfig
-from config import DEFAULT
-import uvicorn
 from pydantic import BaseModel
-import logging
-
-config: DEFAULT = getConfig()
-
-
-log = logging.getLogger(__name__)
-
+from typing import List
 
 class QueryResult(BaseModel):
     source: str
@@ -36,11 +30,13 @@ class ClientQuery(BaseModel):
     query: str
     query_result: QueryResult
 
+config: DEFAULT = getConfig()
+
+log = logging.getLogger(__name__)
 
 app = FastAPI()
 
 origins = ["*"]
-
 
 app.add_middleware(
     CORSMiddleware,
@@ -51,12 +47,12 @@ app.add_middleware(
 )
 
 @app.get("/")
-async def greeting():
+async def greeting() -> dict :
     return {"DZD": "Hello everyone"}
 
 
-@app.get("/meshlist/")
-async def get_mesh_list():
+@app.get("/meshlist/", status_code=200)
+async def get_mesh_list() -> dict:
 
     query = """
     MATCH (n:MeshDescriptor)
@@ -79,36 +75,6 @@ async def get_mesh_list():
         result = await session.execute_read(work)
 
         return result
-
-
-@app.get("/articlebygenelist/")
-async def articel_by_genes(g: list[str] = Query(default=[""])):
-
-    query = """
-    UNWIND $gene_symbols as x
-    MATCH (g:Gene {symbol:x})-[:MENTIONED_IN]->(p:PubMedArticle)
-    -[:PUBMEDARTICLE_HAS_MESHHEADINGLIST]->
-    (mhl:MeshHeadingList)-[*1..2]->
-    (md:MeshDescriptor)
-    RETURN DISTINCT g.symbol AS Symbol, p.ArticleTitle AS ArticleTitle
-    """
-
-    url = config.API_ORIGIN['url']
-    driver = AsyncGraphDatabase.driver(
-        url,
-        auth=basic_auth(
-            config.NEO4J_PUBLIC_PROD["user"], config.NEO4J_PUBLIC_PROD["password"]
-        ),
-    )
-
-    async def work(tx):
-        result = await tx.run(query, {"gene_symbols": g})
-        return await result.data()
-
-    async with driver.session() as session:
-        result = await session.execute_read(work)
-        return result
-
 
 @app.get("/genesbygenelist/")
 async def articel_by_genes(
@@ -219,34 +185,6 @@ async def articel_by_genes(
         result = await session.execute_read(work)
         return result
 
-
-@app.get("/proteinbygenelist/")
-async def articel_by_genes(g: list[str] = Query(default=[""])):
-    query = """
-    UNWIND $gene_symbols as x
-        MATCH (g:Gene {symbol:x})
-        -[:MENTIONED_IN]->(p:PubMedArticle)
-        -[:PUBMEDARTICLE_HAS_MESHHEADINGLIST]->
-        (mhl:MeshHeadingList)-[*1..2]->
-        (md:MeshDescriptor)
-    RETURN DISTINCT g.symbol AS Symbol, p.ArticleTitle AS ArticleTitle
-    """
-
-    url = config.API_ORIGIN['url']
-    driver = AsyncGraphDatabase.driver(
-        url,
-        auth=basic_auth(
-            config.NEO4J_PUBLIC_PROD["user"], config.NEO4J_PUBLIC_PROD["password"]
-        ),
-    )
-
-    async def work(tx):
-        result = await tx.run(query, {"gene_symbols": g})
-        return await result.data()
-
-    async with driver.session() as session:
-        result = await session.execute_read(work)
-        return result
 
 
 ###

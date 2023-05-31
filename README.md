@@ -31,6 +31,8 @@ The DZD-FastAPI is a REST(**R**epresentational **S**tate **T**ransfer)ful-API wh
 
 ### **Endpoints**
 
+See here: ourAPI/docs
+
 **GENERAL**
 - GET - **"/"**
   - params: NONE 
