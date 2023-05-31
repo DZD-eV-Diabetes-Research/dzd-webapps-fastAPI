@@ -7,35 +7,13 @@ import requests
 from Configs import getConfig
 from config import DEFAULT
 import uvicorn
-from pydantic import BaseModel
 import logging
+
+from fastAPIModels import MeSHResult, GeneResult, Result, OrthologOverview, AnimalResult, Article, GWASInformation
 
 config: DEFAULT = getConfig()
 
-
 log = logging.getLogger(__name__)
-
-
-class QueryResult(BaseModel):
-    source: str
-    organism: str
-    pmId: str
-    title: str
-    link: str
-
-
-class Result(BaseModel):
-    source: str
-    organism: str
-    pmId: str
-    title: str
-    link: str
-
-
-class ClientQuery(BaseModel):
-    query: str
-    query_result: QueryResult
-
 
 app = FastAPI()
 
@@ -50,13 +28,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/")
-async def greeting():
+@app.get("/", status_code=200)
+async def greeting() -> dict:
     return {"DZD": "Hello everyone"}
 
 
-@app.get("/meshlist/")
-async def get_mesh_list():
+@app.get("/meshlist/", status_code=200, response_model=MeSHResult)
+async def get_mesh_list() -> dict:
+    """
+    Returns the list of distinct MeSH-descriptors in the Neo4j database
+    """
 
     query = """
     MATCH (n:MeshDescriptor)
@@ -80,43 +61,24 @@ async def get_mesh_list():
 
         return result
 
-
-@app.get("/articlebygenelist/")
-async def articel_by_genes(g: list[str] = Query(default=[""])):
-
-    query = """
-    UNWIND $gene_symbols as x
-    MATCH (g:Gene {symbol:x})-[:MENTIONED_IN]->(p:PubMedArticle)
-    -[:PUBMEDARTICLE_HAS_MESHHEADINGLIST]->
-    (mhl:MeshHeadingList)-[*1..2]->
-    (md:MeshDescriptor)
-    RETURN DISTINCT g.symbol AS Symbol, p.ArticleTitle AS ArticleTitle
-    """
-
-    url = config.API_ORIGIN['url']
-    driver = AsyncGraphDatabase.driver(
-        url,
-        auth=basic_auth(
-            config.NEO4J_PUBLIC_PROD["user"], config.NEO4J_PUBLIC_PROD["password"]
-        ),
-    )
-
-    async def work(tx):
-        result = await tx.run(query, {"gene_symbols": g})
-        return await result.data()
-
-    async with driver.session() as session:
-        result = await session.execute_read(work)
-        return result
-
-
-@app.get("/genesbygenelist/")
+@app.get("/articlesbygenelist/", status_code=200, response_model=List[GeneResult])
 async def articel_by_genes(
     mqt: str = Query(default="and_mesh"),
     g: list[str] = Query(default=[""]),
     b: list[str] = Query(default=["ThisIsAutofill"]),
     m: list[str] = Query(default=["ThisIsAutofill"]),
-):
+) -> dict:
+    """Endpoint to generate a list of articles that mention the entered gene
+
+    Args:
+        mqt (str, optional): _description_. Defaults to Query(default="and_mesh").
+        g (list[str], optional): _description_. Defaults to Query(default=[""]).
+        b (list[str], optional): _description_. Defaults to Query(default=["ThisIsAutofill"]).
+        m (list[str], optional): _description_. Defaults to Query(default=["ThisIsAutofill"]).
+
+    Returns:
+        dict: see response_model
+    """    
 
     first_part = """
     UNWIND $gene_symbols as x
@@ -219,43 +181,22 @@ async def articel_by_genes(
         result = await session.execute_read(work)
         return result
 
-
-@app.get("/proteinbygenelist/")
-async def articel_by_genes(g: list[str] = Query(default=[""])):
-    query = """
-    UNWIND $gene_symbols as x
-        MATCH (g:Gene {symbol:x})
-        -[:MENTIONED_IN]->(p:PubMedArticle)
-        -[:PUBMEDARTICLE_HAS_MESHHEADINGLIST]->
-        (mhl:MeshHeadingList)-[*1..2]->
-        (md:MeshDescriptor)
-    RETURN DISTINCT g.symbol AS Symbol, p.ArticleTitle AS ArticleTitle
-    """
-
-    url = config.API_ORIGIN['url']
-    driver = AsyncGraphDatabase.driver(
-        url,
-        auth=basic_auth(
-            config.NEO4J_PUBLIC_PROD["user"], config.NEO4J_PUBLIC_PROD["password"]
-        ),
-    )
-
-    async def work(tx):
-        result = await tx.run(query, {"gene_symbols": g})
-        return await result.data()
-
-    async with driver.session() as session:
-        result = await session.execute_read(work)
-        return result
-
-
 ###
 # Maus-Klinik
 ###
 
 
-@app.get("/mouseclinic/getOverviewOrthologues/")
-async def getOrthologues(g: list[str] = Query(default=[""])):
+@app.get("/mouseclinic/getOverviewOrthologues/", status_code=200, response_model=List[OrthologOverview]) 
+async def getOrthologues(g: list[str] = Query(default=[""])) -> dict:
+    """Returns number of different orthologues of different species of the gene of interest
+
+    Args:
+        g (list[str], optional): _description_. Defaults to Query(default=[""]).
+
+    Returns:
+        dict: see respone_model
+    """    
+
 
     url = config.API_ORIGIN['url']
     driver = AsyncGraphDatabase.driver(
@@ -298,8 +239,16 @@ async def getOrthologues(g: list[str] = Query(default=[""])):
         return result
 
 
-@app.get("/mouseclinic/getHuman/")
-async def getHuman_by_genes(g: list[str] = Query(default=[""])):
+@app.get("/mouseclinic/getHuman/", status_code=200, response_model=AnimalResult)
+async def getHuman_by_genes(g: list[str] = Query(default=[""])) -> dict:
+    """Returns list of articles, pubmedID, link, title, year for the "human" organism
+
+    Args:
+        g (list[str], optional): _description_. Defaults to Query(default=[""]).
+
+    Returns:
+        dict: see response model
+    """    
 
     url = config.API_ORIGIN['url']
     driver = AsyncGraphDatabase.driver(
@@ -334,8 +283,16 @@ async def getHuman_by_genes(g: list[str] = Query(default=[""])):
         # return test_list
         return result
 
-@app.get("/mouseclinic/getMouse/")
-async def getMouse_by_genes(g: list[str] = Query(default=[""])):
+@app.get("/mouseclinic/getMouse/", status_code=200, response_model=AnimalResult)
+async def getMouse_by_genes(g: list[str] = Query(default=[""])) -> dict:
+    """Returns list of articles, pubmedID, link, title, year for the "mouse" organism
+
+    Args:
+        g (list[str], optional): _description_. Defaults to Query(default=[""]).
+
+    Returns:
+        dict: see response model
+    """    
 
     url = config.API_ORIGIN['url']
     driver = AsyncGraphDatabase.driver(
@@ -370,8 +327,17 @@ async def getMouse_by_genes(g: list[str] = Query(default=[""])):
         # return test_list
         return result
 
-@app.get("/mouseclinic/getZebrafish/")
-async def getFish_by_genes(g: list[str] = Query(default=[""])):
+@app.get("/mouseclinic/getZebrafish/", status_code=200, response_model=AnimalResult)
+async def getFish_by_genes(g: list[str] = Query(default=[""])) -> dict:
+    """Returns list of articles, pubmedID, link, title, year for the "zebrafish" organism
+
+    Args:
+        g (list[str], optional): _description_. Defaults to Query(default=[""]).
+
+    Returns:
+        dict: see response model
+    """
+
 
     url = config.API_ORIGIN['url']
     driver = AsyncGraphDatabase.driver(
@@ -406,8 +372,16 @@ async def getFish_by_genes(g: list[str] = Query(default=[""])):
         # return test_list
         return result
 
-@app.get("/mouseclinic/getRat/")
-async def getRat_by_genes(g: list[str] = Query(default=[""])):
+@app.get("/mouseclinic/getRat/", status_code=200, response_model=AnimalResult)
+async def getRat_by_genes(g: list[str] = Query(default=[""])) -> dict:
+    """Returns list of articles, pubmedID, link, title, year for the "rat" organism
+
+    Args:
+        g (list[str], optional): _description_. Defaults to Query(default=[""]).
+
+    Returns:
+        dict: see response model
+    """    
 
     url = config.API_ORIGIN['url']
     driver = AsyncGraphDatabase.driver(
@@ -443,8 +417,16 @@ async def getRat_by_genes(g: list[str] = Query(default=[""])):
         return result
 
 
-@app.get("/mouseclinic/getPig/")
-async def getPig_by_genes(g: list[str] = Query(default=[""])):
+@app.get("/mouseclinic/getPig/", status_code=200, response_model=AnimalResult)
+async def getPig_by_genes(g: list[str] = Query(default=[""])) -> dict:
+    """Returns list of articles, pubmedID, link, title, year for the "pig" organism
+
+    Args:
+        g (list[str], optional): _description_. Defaults to Query(default=[""]).
+
+    Returns:
+        dict: see response model
+    """    
 
     url = "bolt://neo4j01.connect.dzd-ev.de:9787"
     driver = AsyncGraphDatabase.driver(
@@ -480,8 +462,16 @@ async def getPig_by_genes(g: list[str] = Query(default=[""])):
         return result
 
 
-@app.get("/mouseclinic/getC_elegans/", response_model=list[Result])
-async def getWorm_by_genes(g: list[str] = Query(default=[""])):
+@app.get("/mouseclinic/getC_elegans/", status_code=200, response_model=List[Result])
+async def getWorm_by_genes(g: list[str] = Query(default=[""])) -> dict:
+    """Returns list of articles, pubmedID, link, title, year for the "c_elegans" organism
+
+    Args:
+        g (list[str], optional): _description_. Defaults to Query(default=[""]).
+
+    Returns:
+        dict: see response model
+    """    
 
     url = config.API_ORIGIN['url']
     driver = AsyncGraphDatabase.driver(
@@ -514,8 +504,16 @@ async def getWorm_by_genes(g: list[str] = Query(default=[""])):
         return test_list
 
 
-@app.get("/mouseclinic/getFruitFly/", response_model=list[Result])
-async def getFly_by_genes(g: list[str] = Query(default=[""])):
+@app.get("/mouseclinic/getFruitFly/", status_code=200, response_model=List[Result])
+async def getFly_by_genes(g: list[str] = Query(default=[""])) -> dict:
+    """Returns list of articles, pubmedID, link, title, year for the "fruit fly" organism
+
+    Args:
+        g (list[str], optional): _description_. Defaults to Query(default=[""]).
+
+    Returns:
+        dict: see response model
+    """    
 
     url = config.API_ORIGIN['url']
     driver = AsyncGraphDatabase.driver(
@@ -548,8 +546,16 @@ async def getFly_by_genes(g: list[str] = Query(default=[""])):
         return test_list
 
 
-@app.get("/mouseclinic/getPudMedID2Title/")
-async def getPudMedID2Title(g: list[str] = Query(default=[""])):
+@app.get("/mouseclinic/getPudMedID2Title/", status_code=200, response_model=Article)
+async def getPudMedID2Title(g: list[str] = Query(default=[""])) -> dict:
+    """Returns a list of articles corresponding to the entered pubmedIDs
+
+    Args:
+        g (list[str], optional): _description_. Defaults to Query(default=[""]).
+
+    Returns:
+        dict: see response model
+    """    
 
     url = config.API_ORIGIN['url']
     driver = AsyncGraphDatabase.driver(
@@ -583,8 +589,17 @@ async def getPudMedID2Title(g: list[str] = Query(default=[""])):
         return result
 
 
-@app.get("/mouseclinic/getGWASinformation/")
-async def getGWAS_by_genes(g: list[str] = Query(default=[""])):
+@app.get("/mouseclinic/getGWASinformation/", status_code=200, response_model=List[GWASInformation])
+async def getGWAS_by_genes(g: list[str] = Query(default=[""])) -> dict:
+    """Returns the genesymbol, snp, trait, link of the entered gene
+
+    Args:
+        g (list[str], optional): _description_. Defaults to Query(default=[""]).
+
+    Returns:
+        dict: see response model
+    """
+
     query = """
     UNWIND $gene_symbols as x
     MATCH (g:Gene) WHERE toUpper(g.Symbol) = toUpper(x)
@@ -613,7 +628,7 @@ async def getGWAS_by_genes(g: list[str] = Query(default=[""])):
         return result
 
 
-@app.post("/melodi/{melodi_presto_api_request:path}")
+@app.post("/melodi/{melodi_presto_api_request:path}", status_code=200)
 async def melodi_presto_proxy_endpoint(melodi_presto_api_request: str, payload: str):
     """Accepts a melodi presto api call. Prevents CORS errors in client side.
     see https://melodi-presto.mrcieu.ac.uk/docs/ for details on the API
