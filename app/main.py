@@ -34,7 +34,7 @@ async def greeting() -> dict:
 
 
 @app.get("/meshlist/", status_code=200, response_model=MeSHResult)
-async def get_mesh_list() -> dict:
+async def get_mesh_list() -> MeSHResult:
     """
     Returns the list of distinct MeSH-descriptors in the Neo4j database
     """
@@ -67,7 +67,7 @@ async def articel_by_genes(
     g: list[str] = Query(default=[""]),
     b: list[str] = Query(default=["ThisIsAutofill"]),
     m: list[str] = Query(default=["ThisIsAutofill"]),
-) -> dict:
+) -> List[GeneResult]:
     """Endpoint to generate a list of articles that mention the entered gene
 
     Args:
@@ -128,7 +128,7 @@ async def articel_by_genes(
 
     # graph = Graph(
     #     "bolt://neo4j02.connect.dzd-ev.de:9686",
-    #     auth=("public", "Ah3xxv2pcbNCZKM9"),
+    #     auth=("public", "secret"),
     # )
 
     # res = graph.run(query, meshTerm=m, blockTerm=b, gene_symbols=g).data()
@@ -143,7 +143,7 @@ async def articel_by_genes(
     ###
 
     # uri = "bolt://neo4j02.connect.dzd-ev.de:9686"
-    # driver = GraphDatabase.driver(uri, auth=("public", "Ah3xxv2pcbNCZKM9"))
+    # driver = GraphDatabase.driver(uri, auth=("public", "secret"))
 
     # def work(tx):
     #     result = tx.run(
@@ -187,7 +187,7 @@ async def articel_by_genes(
 
 
 @app.get("/mouseclinic/getOverviewOrthologues/", status_code=200, response_model=List[OrthologOverview]) 
-async def getOrthologues(g: list[str] = Query(default=[""])) -> dict:
+async def getOrthologues(g: list[str] = Query(default=[""])) -> List[OrthologOverview]:
     """Returns number of different orthologues of different species of the gene of interest
 
     Args:
@@ -239,8 +239,8 @@ async def getOrthologues(g: list[str] = Query(default=[""])) -> dict:
         return result
 
 
-@app.get("/mouseclinic/getHuman/", status_code=200, response_model=AnimalResult)
-async def getHuman_by_genes(g: list[str] = Query(default=[""])) -> dict:
+@app.get("/mouseclinic/getHuman/", status_code=200, response_model=List[AnimalResult])
+async def getHuman_by_genes(g: list[str] = Query(default=[""])) -> List[AnimalResult]:
     """Returns list of articles, pubmedID, link, title, year for the "human" organism
 
     Args:
@@ -283,8 +283,8 @@ async def getHuman_by_genes(g: list[str] = Query(default=[""])) -> dict:
         # return test_list
         return result
 
-@app.get("/mouseclinic/getMouse/", status_code=200, response_model=AnimalResult)
-async def getMouse_by_genes(g: list[str] = Query(default=[""])) -> dict:
+@app.get("/mouseclinic/getMouse/", status_code=200, response_model=List[AnimalResult])
+async def getMouse_by_genes(g: list[str] = Query(default=[""])) -> List[AnimalResult]:
     """Returns list of articles, pubmedID, link, title, year for the "mouse" organism
 
     Args:
@@ -327,8 +327,8 @@ async def getMouse_by_genes(g: list[str] = Query(default=[""])) -> dict:
         # return test_list
         return result
 
-@app.get("/mouseclinic/getZebrafish/", status_code=200, response_model=AnimalResult)
-async def getFish_by_genes(g: list[str] = Query(default=[""])) -> dict:
+@app.get("/mouseclinic/getZebrafish/", status_code=200, response_model=List[AnimalResult])
+async def getFish_by_genes(g: list[str] = Query(default=[""])) -> List[AnimalResult]:
     """Returns list of articles, pubmedID, link, title, year for the "zebrafish" organism
 
     Args:
@@ -372,8 +372,8 @@ async def getFish_by_genes(g: list[str] = Query(default=[""])) -> dict:
         # return test_list
         return result
 
-@app.get("/mouseclinic/getRat/", status_code=200, response_model=AnimalResult)
-async def getRat_by_genes(g: list[str] = Query(default=[""])) -> dict:
+@app.get("/mouseclinic/getRat/", status_code=200, response_model=List[AnimalResult])
+async def getRat_by_genes(g: list[str] = Query(default=[""])) -> List[AnimalResult]:
     """Returns list of articles, pubmedID, link, title, year for the "rat" organism
 
     Args:
@@ -417,8 +417,8 @@ async def getRat_by_genes(g: list[str] = Query(default=[""])) -> dict:
         return result
 
 
-@app.get("/mouseclinic/getPig/", status_code=200, response_model=AnimalResult)
-async def getPig_by_genes(g: list[str] = Query(default=[""])) -> dict:
+@app.get("/mouseclinic/getPig/", status_code=200, response_model=List[AnimalResult])
+async def getPig_by_genes(g: list[str] = Query(default=[""])) -> List[AnimalResult]:
     """Returns list of articles, pubmedID, link, title, year for the "pig" organism
 
     Args:
@@ -463,7 +463,7 @@ async def getPig_by_genes(g: list[str] = Query(default=[""])) -> dict:
 
 
 @app.get("/mouseclinic/getC_elegans/", status_code=200, response_model=List[Result])
-async def getWorm_by_genes(g: list[str] = Query(default=[""])) -> dict:
+async def getWorm_by_genes(g: list[str] = Query(default=[""])) -> List[Result]:
     """Returns list of articles, pubmedID, link, title, year for the "c_elegans" organism
 
     Args:
@@ -505,7 +505,7 @@ async def getWorm_by_genes(g: list[str] = Query(default=[""])) -> dict:
 
 
 @app.get("/mouseclinic/getFruitFly/", status_code=200, response_model=List[Result])
-async def getFly_by_genes(g: list[str] = Query(default=[""])) -> dict:
+async def getFly_by_genes(g: list[str] = Query(default=[""])) -> List[Result]:
     """Returns list of articles, pubmedID, link, title, year for the "fruit fly" organism
 
     Args:
@@ -546,8 +546,8 @@ async def getFly_by_genes(g: list[str] = Query(default=[""])) -> dict:
         return test_list
 
 
-@app.get("/mouseclinic/getPudMedID2Title/", status_code=200, response_model=Article)
-async def getPudMedID2Title(g: list[str] = Query(default=[""])) -> dict:
+@app.get("/mouseclinic/getPudMedID2Title/", status_code=200, response_model=List[Article])
+async def getPudMedID2Title(g: list[str] = Query(default=[""])) -> List[Article]:
     """Returns a list of articles corresponding to the entered pubmedIDs
 
     Args:
@@ -590,7 +590,7 @@ async def getPudMedID2Title(g: list[str] = Query(default=[""])) -> dict:
 
 
 @app.get("/mouseclinic/getGWASinformation/", status_code=200, response_model=List[GWASInformation])
-async def getGWAS_by_genes(g: list[str] = Query(default=[""])) -> dict:
+async def getGWAS_by_genes(g: list[str] = Query(default=[""])) -> List[GWASInformation]:
     """Returns the genesymbol, snp, trait, link of the entered gene
 
     Args:
