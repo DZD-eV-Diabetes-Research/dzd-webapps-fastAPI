@@ -32,7 +32,7 @@ app.add_middleware(
 async def greeting() -> dict:
     return {"DZD": "Hello everyone"}
 
-
+# response_model=MeSHResult
 @app.get("/meshlist/", status_code=200, response_model=MeSHResult)
 async def get_mesh_list() -> MeSHResult:
     """
@@ -54,12 +54,13 @@ async def get_mesh_list() -> MeSHResult:
 
     async def work(tx):
         result = await tx.run(query)
-        return await result.data()
+        return await result.single()
 
     async with driver.session() as session:
-        result = await session.execute_read(work)
+        result = await session.read_transaction(work)
+        mesh_list = result['MeSHList']
 
-        return result
+        return MeSHResult(MeSHList=mesh_list)
 
 @app.get("/articlesbygenelist/", status_code=200, response_model=List[GeneResult])
 async def articel_by_genes(
@@ -428,7 +429,7 @@ async def getPig_by_genes(g: list[str] = Query(default=[""])) -> List[AnimalResu
         dict: see response model
     """    
 
-    url = "bolt://neo4j01.connect.dzd-ev.de:9787"
+    url = config.API_ORIGIN['url']
     driver = AsyncGraphDatabase.driver(
         url,
         auth=basic_auth(
