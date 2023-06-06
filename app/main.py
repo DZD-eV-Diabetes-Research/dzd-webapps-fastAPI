@@ -183,6 +183,91 @@ async def articel_by_genes(
         return result
 
 ###
+# Sunburst
+###
+
+@app.get("/sunburst/{author}")
+async def sunburst(firstName: str, lastName:str) -> object:
+
+    url = config.API_ORIGIN['url']
+    driver = AsyncGraphDatabase.driver(
+        url,
+        auth=basic_auth(
+            config.NEO4J_ADMIN_QA["user"], config.NEO4J_ADMIN_QA["password"]
+        ),
+    )
+
+    test= f"""
+    MATCH (a:Author {{LastName:"{lastName}", ForeName:"{firstName}"}})<-[:CONTRIBUTION_HAS_AUTHOR]-(c:Contribution)<-[:PUBMEDARTICLE_HAS_CONTRIBUTION]-(pa:PubMedArticle)-[:PUBMEDARTICLE_HAS_JOURNALISSUE]->(ji:JournalIssue)-[:JOURNALISSUE_HAS_DATE]->(d:Date)
+    WITH a,ji,d,pa
+    MATCH (ji)-[:JOURNALISSUE_HAS_JOURNAL]->(j:Journal)
+    RETURN a.ForeName + " " + a.LastName AS Name, pa.ArticleTitle, COLLECT(DISTINCT pa.PMID) , d.Year AS Year, j.ISOAbbreviation AS Title
+    ORDER BY Year
+    """
+
+    query= f"""MATCH (a:Author {{LastName:"{lastName}", ForeName:"{firstName}"}})<-[:CONTRIBUTION_HAS_AUTHOR]-(c:Contribution)<-[:PUBMEDARTICLE_HAS_CONTRIBUTION]-(pa:PubMedArticle)
+    WITH COLLECT(DISTINCT pa.PMID) AS pmids
+    UNWIND pmids as pmid
+    MATCH (pa: PubMedArticle {{PMID:pmid}})-[r1:PUBMEDARTICLE_HAS_JOURNALISSUE]->(ji:JournalIssue)-[:JOURNALISSUE_HAS_DATE]->(d:Date)
+    WITH pa, d, ji
+    MATCH (ji)-[:JOURNALISSUE_HAS_JOURNAL]->(j:Journal)
+    RETURN d.Year AS Year, SIZE(COLLECT(DISTINCT pa.PMID)) AS ArticlePerYear, COLLECT(j.ISOAbbreviation) AS Titles"""
+
+    async def work(tx):
+        result = await tx.run(query, {"first name":firstName, "last name":lastName})
+        return await result.data()
+
+    async with driver.session() as session:
+        result = await session.execute_read(work)
+
+        name = firstName + " " + lastName
+        ids = [name]
+        labels = [name]
+        year_counter = 0
+        parents = [""]
+        values = []
+        
+        for element in result:
+            year_counter += 1
+            if element["Year"] not in ids:
+                ids.append(element["Year"])
+                labels.append(element["Year"])
+            values.append(element["ArticlePerYear"])
+
+        
+        for element in result:
+            help_list = []
+            for title in element["Titles"]:
+                if title not in ids:
+                    ids.append(title)
+                if title not in help_list:
+                    help_list.append(title)
+            labels.extend(help_list)
+            
+        for _ in range(year_counter):
+            parents.append(name)
+
+        for x in values:
+            parents.append
+
+        values.insert(0, sum(values))
+
+        print("ids")
+        print(ids)
+        print("labels")
+        print(labels)
+
+        # print(result)
+        # print("parents")
+        # print(parents)
+
+        # print("ids")
+        # print(ids)
+        # print("values")
+        # print(values)
+        return result
+    
+###
 # Maus-Klinik
 ###
 
