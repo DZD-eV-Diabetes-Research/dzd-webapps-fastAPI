@@ -9,7 +9,16 @@ from config import DEFAULT
 import uvicorn
 import logging
 
-from fastAPIModels import MeSHResult, GeneResult, Result, OrthologOverview, AnimalResult, Article, GWASInformation
+from fastAPIModels import (
+    MeSHResult,
+    GeneResult,
+    Result,
+    OrthologOverview,
+    AnimalResult,
+    Article,
+    GWASInformation,
+)
+from sunBurstAnalyzer import SunburstData, SunburstDataContainer
 
 config: DEFAULT = getConfig()
 
@@ -28,9 +37,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.get("/", status_code=200)
 async def greeting() -> dict:
     return {"DZD": "Hello everyone"}
+
 
 # response_model=MeSHResult
 @app.get("/meshlist/", status_code=200, response_model=MeSHResult)
@@ -44,7 +55,7 @@ async def get_mesh_list() -> MeSHResult:
     RETURN COLLECT(DISTINCT(n.text)) AS MeSHList
     """
 
-    url = config.API_ORIGIN['url']
+    url = config.API_ORIGIN["url"]
     driver = AsyncGraphDatabase.driver(
         url,
         auth=basic_auth(
@@ -58,9 +69,10 @@ async def get_mesh_list() -> MeSHResult:
 
     async with driver.session() as session:
         result = await session.read_transaction(work)
-        mesh_list = result['MeSHList']
+        mesh_list = result["MeSHList"]
 
         return MeSHResult(MeSHList=mesh_list)
+
 
 @app.get("/articlesbygenelist/", status_code=200, response_model=List[GeneResult])
 async def articel_by_genes(
@@ -79,7 +91,7 @@ async def articel_by_genes(
 
     Returns:
         dict: see response_model
-    """    
+    """
 
     first_part = """
     UNWIND $gene_symbols as x
@@ -166,7 +178,7 @@ async def articel_by_genes(
     #
     ###
 
-    url = config.API_ORIGIN['url']
+    url = config.API_ORIGIN["url"]
     driver = AsyncGraphDatabase.driver(
         url,
         auth=basic_auth(
@@ -182,14 +194,15 @@ async def articel_by_genes(
         result = await session.execute_read(work)
         return result
 
+
 ###
 # Sunburst
 ###
 
-@app.get("/sunburst/{author}")
-async def sunburst(firstName: str, lastName:str) -> object:
 
-    url = config.API_ORIGIN['url']
+@app.get("/sunburst/")
+async def sunburst(firstName: str, lastName: str) -> object:
+    url = config.API_ORIGIN["url"]
     driver = AsyncGraphDatabase.driver(
         url,
         auth=basic_auth(
@@ -197,15 +210,15 @@ async def sunburst(firstName: str, lastName:str) -> object:
         ),
     )
 
-    test= f"""
-    MATCH (a:Author {{LastName:"{lastName}", ForeName:"{firstName}"}})<-[:CONTRIBUTION_HAS_AUTHOR]-(c:Contribution)<-[:PUBMEDARTICLE_HAS_CONTRIBUTION]-(pa:PubMedArticle)-[:PUBMEDARTICLE_HAS_JOURNALISSUE]->(ji:JournalIssue)-[:JOURNALISSUE_HAS_DATE]->(d:Date)
-    WITH a,ji,d,pa
-    MATCH (ji)-[:JOURNALISSUE_HAS_JOURNAL]->(j:Journal)
-    RETURN a.ForeName + " " + a.LastName AS Name, pa.ArticleTitle, COLLECT(DISTINCT pa.PMID) , d.Year AS Year, j.ISOAbbreviation AS Title
-    ORDER BY Year
-    """
+    # test = f"""
+    # MATCH (a:Author {{LastName:"{lastName}", ForeName:"{firstName}"}})<-[:CONTRIBUTION_HAS_AUTHOR]-(c:Contribution)<-[:PUBMEDARTICLE_HAS_CONTRIBUTION]-(pa:PubMedArticle)-[:PUBMEDARTICLE_HAS_JOURNALISSUE]->(ji:JournalIssue)-[:JOURNALISSUE_HAS_DATE]->(d:Date)
+    # WITH a,ji,d,pa
+    # MATCH (ji)-[:JOURNALISSUE_HAS_JOURNAL]->(j:Journal)
+    # RETURN a.ForeName + " " + a.LastName AS Name, pa.ArticleTitle, COLLECT(DISTINCT pa.PMID) , d.Year AS Year, j.ISOAbbreviation AS Title
+    # ORDER BY Year
+    # """
 
-    query= f"""MATCH (a:Author {{LastName:"{lastName}", ForeName:"{firstName}"}})<-[:CONTRIBUTION_HAS_AUTHOR]-(c:Contribution)<-[:PUBMEDARTICLE_HAS_CONTRIBUTION]-(pa:PubMedArticle)
+    query = f"""MATCH (a:Author {{LastName:"{lastName}", ForeName:"{firstName}"}})<-[:CONTRIBUTION_HAS_AUTHOR]-(c:Contribution)<-[:PUBMEDARTICLE_HAS_CONTRIBUTION]-(pa:PubMedArticle)
     WITH COLLECT(DISTINCT pa.PMID) AS pmids
     UNWIND pmids as pmid
     MATCH (pa: PubMedArticle {{PMID:pmid}})-[r1:PUBMEDARTICLE_HAS_JOURNALISSUE]->(ji:JournalIssue)-[:JOURNALISSUE_HAS_DATE]->(d:Date)
@@ -214,65 +227,40 @@ async def sunburst(firstName: str, lastName:str) -> object:
     RETURN d.Year AS Year, SIZE(COLLECT(DISTINCT pa.PMID)) AS ArticlePerYear, COLLECT(j.ISOAbbreviation) AS Titles"""
 
     async def work(tx):
-        result = await tx.run(query, {"first name":firstName, "last name":lastName})
+        result = await tx.run(query, {"first name": firstName, "last name": lastName})
         return await result.data()
 
     async with driver.session() as session:
         result = await session.execute_read(work)
 
-        name = firstName + " " + lastName
-        ids = [name]
-        labels = [name]
-        year_counter = 0
-        parents = [""]
-        values = []
-        
-        for element in result:
-            year_counter += 1
-            if element["Year"] not in ids:
-                ids.append(element["Year"])
-                labels.append(element["Year"])
-            values.append(element["ArticlePerYear"])
+        sunburstData = SunburstData()
+        sunburstData.setName(f"{firstName} {lastName}")
+        sunburstData.from_neo4j_data(result)
+        sunburstData = [sunburstData]
+        sunburstData = SunburstDataContainer(
+            firstName=firstName,
+            lastName=lastName,
+            chartData=sunburstData,
+            chartLayout={
+                "colorscale": "RdPu",
+                "height": None,
+                "width": None,
+            },
+        )
 
-        
-        for element in result:
-            help_list = []
-            for title in element["Titles"]:
-                if title not in ids:
-                    ids.append(title)
-                if title not in help_list:
-                    help_list.append(title)
-            labels.extend(help_list)
-            
-        for _ in range(year_counter):
-            parents.append(name)
+        return sunburstData
 
-        for x in values:
-            parents.append
 
-        values.insert(0, sum(values))
-
-        print("ids")
-        print(ids)
-        print("labels")
-        print(labels)
-
-        # print(result)
-        # print("parents")
-        # print(parents)
-
-        # print("ids")
-        # print(ids)
-        # print("values")
-        # print(values)
-        return result
-    
 ###
 # Maus-Klinik
 ###
 
 
-@app.get("/mouseclinic/getOverviewOrthologues/", status_code=200, response_model=List[OrthologOverview]) 
+@app.get(
+    "/mouseclinic/getOverviewOrthologues/",
+    status_code=200,
+    response_model=List[OrthologOverview],
+)
 async def getOrthologues(g: list[str] = Query(default=[""])) -> List[OrthologOverview]:
     """Returns number of different orthologues of different species of the gene of interest
 
@@ -281,10 +269,9 @@ async def getOrthologues(g: list[str] = Query(default=[""])) -> List[OrthologOve
 
     Returns:
         dict: see respone_model
-    """    
+    """
 
-
-    url = config.API_ORIGIN['url']
+    url = config.API_ORIGIN["url"]
     driver = AsyncGraphDatabase.driver(
         url,
         auth=basic_auth(
@@ -334,9 +321,9 @@ async def getHuman_by_genes(g: list[str] = Query(default=[""])) -> List[AnimalRe
 
     Returns:
         dict: see response model
-    """    
+    """
 
-    url = config.API_ORIGIN['url']
+    url = config.API_ORIGIN["url"]
     driver = AsyncGraphDatabase.driver(
         url,
         auth=basic_auth(
@@ -369,6 +356,7 @@ async def getHuman_by_genes(g: list[str] = Query(default=[""])) -> List[AnimalRe
         # return test_list
         return result
 
+
 @app.get("/mouseclinic/getMouse/", status_code=200, response_model=List[AnimalResult])
 async def getMouse_by_genes(g: list[str] = Query(default=[""])) -> List[AnimalResult]:
     """Returns list of articles, pubmedID, link, title, year for the "mouse" organism
@@ -378,9 +366,9 @@ async def getMouse_by_genes(g: list[str] = Query(default=[""])) -> List[AnimalRe
 
     Returns:
         dict: see response model
-    """    
+    """
 
-    url = config.API_ORIGIN['url']
+    url = config.API_ORIGIN["url"]
     driver = AsyncGraphDatabase.driver(
         url,
         auth=basic_auth(
@@ -413,7 +401,10 @@ async def getMouse_by_genes(g: list[str] = Query(default=[""])) -> List[AnimalRe
         # return test_list
         return result
 
-@app.get("/mouseclinic/getZebrafish/", status_code=200, response_model=List[AnimalResult])
+
+@app.get(
+    "/mouseclinic/getZebrafish/", status_code=200, response_model=List[AnimalResult]
+)
 async def getFish_by_genes(g: list[str] = Query(default=[""])) -> List[AnimalResult]:
     """Returns list of articles, pubmedID, link, title, year for the "zebrafish" organism
 
@@ -424,8 +415,7 @@ async def getFish_by_genes(g: list[str] = Query(default=[""])) -> List[AnimalRes
         dict: see response model
     """
 
-
-    url = config.API_ORIGIN['url']
+    url = config.API_ORIGIN["url"]
     driver = AsyncGraphDatabase.driver(
         url,
         auth=basic_auth(
@@ -458,6 +448,7 @@ async def getFish_by_genes(g: list[str] = Query(default=[""])) -> List[AnimalRes
         # return test_list
         return result
 
+
 @app.get("/mouseclinic/getRat/", status_code=200, response_model=List[AnimalResult])
 async def getRat_by_genes(g: list[str] = Query(default=[""])) -> List[AnimalResult]:
     """Returns list of articles, pubmedID, link, title, year for the "rat" organism
@@ -467,9 +458,9 @@ async def getRat_by_genes(g: list[str] = Query(default=[""])) -> List[AnimalResu
 
     Returns:
         dict: see response model
-    """    
+    """
 
-    url = config.API_ORIGIN['url']
+    url = config.API_ORIGIN["url"]
     driver = AsyncGraphDatabase.driver(
         url,
         auth=basic_auth(
@@ -512,9 +503,9 @@ async def getPig_by_genes(g: list[str] = Query(default=[""])) -> List[AnimalResu
 
     Returns:
         dict: see response model
-    """    
+    """
 
-    url = config.API_ORIGIN['url']
+    url = config.API_ORIGIN["url"]
     driver = AsyncGraphDatabase.driver(
         url,
         auth=basic_auth(
@@ -557,9 +548,9 @@ async def getWorm_by_genes(g: list[str] = Query(default=[""])) -> List[Result]:
 
     Returns:
         dict: see response model
-    """    
+    """
 
-    url = config.API_ORIGIN['url']
+    url = config.API_ORIGIN["url"]
     driver = AsyncGraphDatabase.driver(
         url,
         auth=basic_auth(
@@ -599,9 +590,9 @@ async def getFly_by_genes(g: list[str] = Query(default=[""])) -> List[Result]:
 
     Returns:
         dict: see response model
-    """    
+    """
 
-    url = config.API_ORIGIN['url']
+    url = config.API_ORIGIN["url"]
     driver = AsyncGraphDatabase.driver(
         url,
         auth=basic_auth(
@@ -632,7 +623,9 @@ async def getFly_by_genes(g: list[str] = Query(default=[""])) -> List[Result]:
         return test_list
 
 
-@app.get("/mouseclinic/getPudMedID2Title/", status_code=200, response_model=List[Article])
+@app.get(
+    "/mouseclinic/getPudMedID2Title/", status_code=200, response_model=List[Article]
+)
 async def getPudMedID2Title(g: list[str] = Query(default=[""])) -> List[Article]:
     """Returns a list of articles corresponding to the entered pubmedIDs
 
@@ -641,9 +634,9 @@ async def getPudMedID2Title(g: list[str] = Query(default=[""])) -> List[Article]
 
     Returns:
         dict: see response model
-    """    
+    """
 
-    url = config.API_ORIGIN['url']
+    url = config.API_ORIGIN["url"]
     driver = AsyncGraphDatabase.driver(
         url,
         auth=basic_auth(
@@ -675,7 +668,11 @@ async def getPudMedID2Title(g: list[str] = Query(default=[""])) -> List[Article]
         return result
 
 
-@app.get("/mouseclinic/getGWASinformation/", status_code=200, response_model=List[GWASInformation])
+@app.get(
+    "/mouseclinic/getGWASinformation/",
+    status_code=200,
+    response_model=List[GWASInformation],
+)
 async def getGWAS_by_genes(g: list[str] = Query(default=[""])) -> List[GWASInformation]:
     """Returns the genesymbol, snp, trait, link of the entered gene
 
@@ -697,7 +694,7 @@ async def getGWAS_by_genes(g: list[str] = Query(default=[""])) -> List[GWASInfor
     RETURN DISTINCT g.Symbol AS Gene, n.snp_id AS SNP, t.name AS Trait, t.efo_trait_uri AS Link
     """
 
-    url = config.API_ORIGIN['url']
+    url = config.API_ORIGIN["url"]
     driver = AsyncGraphDatabase.driver(
         url,
         auth=basic_auth(
