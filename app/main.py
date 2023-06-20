@@ -201,7 +201,7 @@ async def articel_by_genes(
 
 
 @app.get("/sunburst/")
-async def sunburst(firstName: str, lastName: str) -> object:
+async def sunburst(searchType: str, firstName: str, lastName: str) -> object:
     url = config.API_ORIGIN["url"]
     driver = AsyncGraphDatabase.driver(
         url,
@@ -218,16 +218,26 @@ async def sunburst(firstName: str, lastName: str) -> object:
     # ORDER BY Year
     # """
 
-    query = f"""MATCH (a:Author {{LastName:"{lastName}", ForeName:"{firstName}"}})<-[:CONTRIBUTION_HAS_AUTHOR]-(c:Contribution)<-[:PUBMEDARTICLE_HAS_CONTRIBUTION]-(pa:PubMedArticle)
-    WITH COLLECT(DISTINCT pa.PMID) AS pmids
-    UNWIND pmids as pmid
-    MATCH (pa: PubMedArticle {{PMID:pmid}})-[r1:PUBMEDARTICLE_HAS_JOURNALISSUE]->(ji:JournalIssue)-[:JOURNALISSUE_HAS_DATE]->(d:Date)
-    WITH pa, d, ji
-    MATCH (ji)-[:JOURNALISSUE_HAS_JOURNAL]->(j:Journal)
-    RETURN d.Year AS Year, SIZE(COLLECT(DISTINCT pa.PMID)) AS ArticlePerYear, COLLECT(j.ISOAbbreviation) AS Titles"""
+    if searchType == "mesh":
+        query = f"""MATCH (a:Author {{LastName:"{lastName}", ForeName:"{firstName}"}})<-[:CONTRIBUTION_HAS_AUTHOR]-(c:Contribution)<-[:PUBMEDARTICLE_HAS_CONTRIBUTION]-(pa:PubMedArticle)
+        WITH COLLECT(DISTINCT pa.PMID) AS pmids
+        UNWIND pmids as pmid
+        MATCH (pa: PubMedArticle {{PMID:pmid}})-[r1:PUBMEDARTICLE_HAS_JOURNALISSUE]->(ji:JournalIssue)-[:JOURNALISSUE_HAS_DATE]->(d:Date)
+        WITH pa, d
+        MATCH (pa)-[:PUBMEDARTICLE_HAS_MESHHEADINGLIST]->(mhl:MeshHeadingList)-[:MESHHEADINGLIST_HAS_MESHHEADING]->(mh:MeshHeading)-[:MESHHEADING_HAS_MESHDESCRIPTOR]->(md:MeshDescriptor)
+        RETURN d.Year AS Year, SIZE(COLLECT(DISTINCT pa.PMID)) AS ArticlePerYear, COLLECT(md.text) AS Items"""
+
+    elif searchType == "journal":
+        query = f"""MATCH (a:Author {{LastName:"{lastName}", ForeName:"{firstName}"}})<-[:CONTRIBUTION_HAS_AUTHOR]-(c:Contribution)<-[:PUBMEDARTICLE_HAS_CONTRIBUTION]-(pa:PubMedArticle)
+        WITH COLLECT(DISTINCT pa.PMID) AS pmids
+        UNWIND pmids as pmid
+        MATCH (pa: PubMedArticle {{PMID:pmid}})-[r1:PUBMEDARTICLE_HAS_JOURNALISSUE]->(ji:JournalIssue)-[:JOURNALISSUE_HAS_DATE]->(d:Date)
+        WITH pa, d, ji
+        MATCH (ji)-[:JOURNALISSUE_HAS_JOURNAL]->(j:Journal)
+        RETURN d.Year AS Year, SIZE(COLLECT(DISTINCT pa.PMID)) AS ArticlePerYear, COLLECT(j.ISOAbbreviation) AS Items"""
 
     async def work(tx):
-        result = await tx.run(query, {"first name": firstName, "last name": lastName})
+        result = await tx.run(query)
         return await result.data()
 
     async with driver.session() as session:
@@ -242,7 +252,7 @@ async def sunburst(firstName: str, lastName: str) -> object:
             lastName=lastName,
             chartData=sunburstData,
             chartLayout={
-                "colorscale": "RdPu",
+                "colorscale": "Viridis",
                 "height": None,
                 "width": None,
             },

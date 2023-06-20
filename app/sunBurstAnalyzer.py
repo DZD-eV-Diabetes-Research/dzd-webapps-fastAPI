@@ -9,6 +9,7 @@ class SunburstData(BaseModel):
     labels: List[str] = []
     parents: List[str] = [""]
     values: List[int] = []
+    # marker = {"colorscale": "Viridis"}
     name: str = Field(exclude=True, default="")
     help_counter_1 = Field(exclude=True, default=0)
     year_counter = Field(exclude=True, default=0)
@@ -30,21 +31,21 @@ class SunburstData(BaseModel):
         if data["Year"] not in self.ids:
             self.ids.insert(self.help_counter_1, data["Year"])
             self.labels.insert(self.help_counter_1, data["Year"])
-        self.values.insert(self.year_counter, len(data["Titles"]))
+        self.values.insert(self.year_counter, len(data["Items"]))
         self.year_counter += 1
 
         help_list2 = []
         value_list = []
-        for title in data["Titles"]:
+        for title in data["Items"]:
             if title not in help_list2:
                 help_list2.append(title)
-                value_list.append(data["Titles"].count(title))
+                value_list.append(data["Items"].count(title))
 
         self.values.extend(value_list)
 
         help_list = []
 
-        for title in data["Titles"]:
+        for title in data["Items"]:
             if title + "_" + data["Year"] not in self.ids:
                 self.parents.append(data["Year"])
                 self.ids.append(title + "_" + data["Year"])
