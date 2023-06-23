@@ -12,6 +12,7 @@ from Configs import getConfig
 from config import DEFAULT
 import uvicorn
 import logging
+from typing import List
 
 from fastAPIModels import (
     MeSHResult,
